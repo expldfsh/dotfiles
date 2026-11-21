@@ -18,7 +18,7 @@
     trailSize: 1, // 0..1; original used 1
     opacity: 0.65, // translucent overlay; native cursor marks the exact endpoint
     shadowBlur: 0, // 0 disables glow; original used 10
-    maxJump: 400, // CSS px; longer jumps snap instead of stretching across text
+    maxJump: 999999, // CSS px; longer jumps snap instead of stretching across text
     maxDpr: 2, // cap memory cost; raise for displays above 200% scale if wanted
     discoveryInterval: 1500, // fallback for newly created editor DOM
     respectReducedMotion: true,
@@ -67,6 +67,7 @@
     for (const editor of editors.values()) {
       clear(editor);
       editor.cursors.clear();
+      editor.lastSingleCursor = null;
     }
   }
 
@@ -98,18 +99,15 @@
       if (!ctx) continue;
       host.appendChild(canvas);
       const editor = {
-        element, host, viewport, canvas, ctx, cursors: new Map(),
+        element, host, viewport, canvas, ctx, cursors: new Map(), lastSingleCursor: null,
         width: 0, height: 0, dpr: 0, painted: false, clip: null,
       };
       editor.observer = new MutationObserver(records => {
         // Ignore our own canvas sizing; never write to Monaco cursor nodes.
-        const changes = records.filter(record => record.target !== canvas);
-        if (changes.length) invalidate(changes.some(record =>
-          record.type === "attributes" && record.attributeName === "style" &&
-          record.target.matches(".lines-content, .view-lines")));
+        if (records.some(record => record.target !== canvas)) invalidate();
       });
       editor.observer.observe(element, {
-        subtree: true, childList: true, attributes: true, attributeFilter: ["style", "class"],
+        subtree: true, childList: true, attributes: true, attributeFilter: ["style", "class", "data-uri"],
       });
       editor.resizeObserver = new ResizeObserver(() => invalidate(true));
       editor.resizeObserver.observe(host);
@@ -131,23 +129,34 @@
   function readEditor(editor) {
     const rect = editor.host.getBoundingClientRect();
     const view = editor.viewport.getBoundingClientRect();
-    const previous = editor.hostRect;
-    const layoutMoved = !previous || ["left", "top", "width", "height"].some(k => previous[k] !== rect[k]);
-    editor.hostRect = rect;
     const computed = getComputedStyle(editor.element);
     const active = document.activeElement?.closest(".monaco-editor") === editor.element;
     const visible = rect.width > 0 && rect.height > 0 &&
       rect.bottom > 0 && rect.right > 0 && rect.left < innerWidth && rect.top < innerHeight &&
       computed.visibility !== "hidden" && computed.display !== "none";
+    // Compare actual content offsets: Monaco also writes inline styles when nothing scrolls.
+    const lines = active && visible ? editor.viewport.querySelector(".view-lines") : null;
+    const origin = lines?.getBoundingClientRect();
+    const viewState = {
+      left: rect.left, top: rect.top, width: rect.width, height: rect.height,
+      lines, contentLeft: origin?.left, contentTop: origin?.top,
+      uri: editor.element.getAttribute("data-uri"),
+    };
+    const previous = editor.viewState;
+    const layoutMoved = !previous || Object.keys(viewState).some(key => viewState[key] !== previous[key]);
+    editor.viewState = viewState;
     const clip = {
       left: Math.max(0, view.left - rect.left), top: Math.max(0, view.top - rect.top),
       right: Math.min(rect.width, view.right - rect.left),
       bottom: Math.min(rect.height, view.bottom - rect.top),
     };
     const samples = [];
+    let cursorCount = 0;
+    let canRemember = active && visible && !!lines;
     if (visible && active) {
       for (const target of editor.element.querySelectorAll(".cursors-layer .cursor")) {
         if (target.closest(".monaco-editor") !== editor.element) continue;
+        cursorCount++;
         const style = getComputedStyle(target);
         const box = target.getBoundingClientRect();
         // An ancestor cursors-layer may be transparent during native blinking.
@@ -157,11 +166,17 @@
         const x = box.left - rect.left;
         const y = box.top - rect.top;
         if (x + box.width <= clip.left || y + box.height <= clip.top ||
-            x >= clip.right || y >= clip.bottom) continue;
+            x >= clip.right || y >= clip.bottom) {
+          canRemember = false;
+          continue;
+        }
         samples.push({ target, x, y, width: box.width, height: box.height });
       }
     }
-    return { editor, rect, clip, samples, layoutMoved, color: cssColor(computed) };
+    return {
+      editor, rect, clip, samples, layoutMoved, color: cssColor(computed),
+      canRemember: canRemember && cursorCount <= 1,
+    };
   }
 
   function snap(state, sample) {
@@ -177,7 +192,7 @@
     const dy = sample.y - state.y;
     const distance = Math.hypot(dx, dy);
     const resized = sample.width !== state.width || sample.height !== state.height;
-    if (immediate || resized || distance > CONFIG.maxJump) {
+    if (immediate || distance > CONFIG.maxJump || (resized && distance < 0.01)) {
       snap(state, sample);
       return;
     }
@@ -221,7 +236,7 @@
   }
 
   function applySamples(batch, now) {
-    const { editor, rect, clip, samples, layoutMoved, color } = batch;
+    const { editor, rect, clip, samples, layoutMoved, canRemember, color } = batch;
     const dpr = Math.min(devicePixelRatio || 1, CONFIG.maxDpr);
     if (editor.width !== rect.width || editor.height !== rect.height || editor.dpr !== dpr) {
       editor.width = rect.width;
@@ -236,18 +251,22 @@
     }
     editor.clip = clip;
     editor.color = color;
+    const immediate = forceSnap || layoutMoved;
+    if (immediate || !canRemember) editor.lastSingleCursor = null;
     const seen = new Set();
     for (const sample of samples) {
       seen.add(sample.target);
-      let state = editor.cursors.get(sample.target);
-      if (!state) {
+      // A blink or a replaced DOM node can leave the map empty between two movements.
+      let state = editor.cursors.get(sample.target) ?? editor.lastSingleCursor;
+      if (state) {
+        advance(state, now); // Retarget from the currently displayed shape.
+        retarget(state, sample, now, immediate);
+      } else {
         state = {};
         snap(state, sample);
-        editor.cursors.set(sample.target, state);
-      } else {
-        advance(state, now); // Retarget from the currently displayed shape.
-        retarget(state, sample, now, forceSnap || layoutMoved);
       }
+      editor.cursors.set(sample.target, state);
+      if (canRemember) editor.lastSingleCursor = state;
     }
     for (const target of editor.cursors.keys()) {
       if (!seen.has(target)) editor.cursors.delete(target);
@@ -298,8 +317,10 @@
     if (disposed) return;
     discover();
     timerId = setInterval(discover, CONFIG.discoveryInterval);
-    listen(document, "focusin", () => { discover(); invalidate(true); }, { capture: true });
-    listen(document, "focusout", () => invalidate(true), { capture: true });
+    const focusChangedEditor = event => event.target.closest?.(".monaco-editor") !==
+      event.relatedTarget?.closest?.(".monaco-editor");
+    listen(document, "focusin", event => { discover(); invalidate(focusChangedEditor(event)); }, { capture: true });
+    listen(document, "focusout", event => invalidate(focusChangedEditor(event)), { capture: true });
     listen(document, "keydown", () => invalidate(), { capture: true });
     listen(document, "pointerdown", () => invalidate(), { capture: true, passive: true });
     listen(document, "input", () => invalidate(), { capture: true });
