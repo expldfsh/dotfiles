@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<action>
+	<icon />
+	<name>获取所有权</name>
+	<submenu />
+	<unique-id>1777472832087395-1</unique-id>
+	<command>sh -c 'exec "$HOME/.local/bin/getown" "$@"' _ %F</command>
+	<description />
+	<range>*</range>
+	<patterns>*</patterns>
+	<directories />
+	<audio-files />
+	<image-files />
+	<other-files />
+	<text-files />
+	<video-files />
+</action>
