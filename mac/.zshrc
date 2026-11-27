@@ -13,10 +13,10 @@ ZSH_HIGHLIGHT_STYLES[path_prefix]=none
 # Activate autosuggestions
 source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 # Created by `userpath` on 2026-01-09 15:31:54
-export PATH="$PATH:/Users/expldfsh/.local/bin"
+export PATH="$PATH:$HOME/.local/bin"
 
 # Created by `pipx` on 2026-01-09 15:39:50
-export PATH="$PATH:/Users/expldfsh/Library/Python/3.11/bin"
+export PATH="$PATH:$HOME/Library/Python/3.11/bin"
 
 # fastfetch rainbow greeting (local + ssh)
 if [[ -o interactive ]] \
