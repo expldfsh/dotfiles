@@ -1,0 +1,27 @@
+layout{
+    focus-ring{
+        active-gradient from="#cec0e8E6" to="#94cdf7E6" angle=135
+        urgent-color "#ffb4ab"
+
+        }
+}
+recent-windows {
+    highlight {
+        active-color "#353a3e"
+        urgent-color "#ffb4ab"
+    }
+}
+// 内置screencast portal选择器的配色
+screen-cast-picker {
+    background-color "#1c2024"
+    accent-color "#94cdf7"
+    text-color "#dfe3e8"
+    accent-text-color "#00344d"
+}
+grid-overview {
+    minimized-highlight {
+        // off
+        color "#b7c9d980"
+        urgent-color "#94cdf780"
+    }
+}
