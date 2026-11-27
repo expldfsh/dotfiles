@@ -84,6 +84,9 @@ gvfs
 tumbler
 ffmpegthumbnailer
 thunar-volman
+chafa
+poppler
+file
 adw-gtk-theme
 gtk4
 libadwaita
