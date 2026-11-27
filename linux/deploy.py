@@ -3,6 +3,7 @@ import argparse
 import datetime
 import filecmp
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -11,23 +12,45 @@ root = Path(__file__).resolve().parent
 home = Path.home().resolve()
 wall_name = "FCD2D539E2FA1A71D3E156BE3D2E4DE1-Picsart-AiImageEnhancer.png"
 
+system_apps = Path("/usr/share/applications")
+
+
 def mapping(vmware):
     for folder in (".config", ".local", ".vim"):
         for path in sorted((root / folder).rglob("*")):
             if path.is_file():
                 yield path, home / path.relative_to(root)
-    for name in (".bashrc", ".vimrc"):
+    for name in (".bashrc", ".vimrc", ".gtkrc-2.0"):
         yield root / name, home / name
     if vmware:
         yield root / "profiles/vmware/output.kdl", home / ".config/niri/output.kdl"
-    yield root.parent / "wallpaper" / wall_name, home / "Pictures/Wallpapers" / wall_name
+    for name in (root / "seeds/wallpapers.txt").read_text().splitlines():
+        yield root.parent / "wallpaper" / name, home / "Pictures/Wallpapers" / name
+    for name in (root / "seeds/hidden-launchers.txt").read_text().splitlines():
+        source = system_apps / name
+        if source.is_file():
+            yield source, home / ".local/share/applications" / name
     yield root / "seeds/hyprlock-colors.conf", home / ".cache/matugen/hypr/colors.conf"
 
-def install(vmware, replace):
+def hide_from_launcher(source, workdir):
+    desktop = source.read_text()
+    section = re.search(r"(?ms)^\[Desktop Entry\][^\n]*\n(.*?)(?=^\[|\Z)", desktop)
+    if section is None:
+        raise ValueError(f"Missing Desktop Entry: {source}")
+    body = re.sub(r"(?m)^NoDisplay=[^\n]*\n?", "", section[1])
+    text = desktop[:section.start(1)] + "NoDisplay=true\n" + body + desktop[section.end(1):]
+    generated = workdir / source.name
+    generated.write_text(text)
+    return generated
+
+
+def install(vmware, replace, workdir):
     backup = None
     copied = same = 0
     skipped = []
     for src, dst in mapping(vmware):
+        if src.parent == system_apps:
+            src = hide_from_launcher(src, workdir)
         if not src.is_file() or src.is_symlink():
             raise ValueError(f"Unexpected source: {src}")
         if dst.parent.resolve() != dst.parent or dst.is_symlink() or (dst.exists() and not dst.is_file()):
@@ -72,7 +95,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.plan:
         for src, dst in mapping(args.vmware):
-            print(f"{src.relative_to(root.parent)} -> ~/{dst.relative_to(home)}")
+            label = src.relative_to(root.parent) if src.is_relative_to(root.parent) else f"{src} (NoDisplay)"
+            print(f"{label} -> ~/{dst.relative_to(home)}")
         print("Current wallpaper link -> ~/.cache/.current_wallpaper (if missing)")
     else:
-        install(args.vmware, args.replace)
+        with tempfile.TemporaryDirectory(prefix="dotfiles-launchers-") as work:
+            install(args.vmware, args.replace, Path(work))

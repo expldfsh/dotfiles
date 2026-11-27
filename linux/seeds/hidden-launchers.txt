@@ -1,0 +1,17 @@
+btop.desktop
+cmake-gui.desktop
+kbd-layout-viewer5.desktop
+lstopo.desktop
+mpv.desktop
+org.fcitx.Fcitx5.desktop
+org.fcitx.fcitx5-migrator.desktop
+org.gnome.Nautilus.desktop
+qv4l2.desktop
+qvidcap.desktop
+thunar-bulk-rename.desktop
+thunar-settings.desktop
+thunar-volman-settings.desktop
+waypaper.desktop
+xfce4-about.desktop
+xgps.desktop
+xgpsspeed.desktop
