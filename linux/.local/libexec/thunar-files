@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Implement clipboard and conversion actions for the Thunar menu."""
+import os
+import shutil
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+
+def local_files():
+    data = subprocess.check_output(["wl-paste", "-n", "-t", "text/uri-list"], text=True)
+    for row in data.splitlines():
+        uri = urlsplit(row)
+        if uri.scheme == "file" and uri.netloc in ("", "localhost"):
+            source = Path(unquote(uri.path))
+            if source.is_absolute() and source.exists():
+                yield source
+
+
+def unused(directory, name):
+    path = directory / name
+    index = 1
+    while os.path.lexists(path):
+        leaf = Path(name)
+        path = directory / f"{leaf.stem} ({index}){leaf.suffix}"
+        index += 1
+    return path
+
+
+def main():
+    action, *names = sys.argv[1:]
+    if action == "png":
+        for name in names:
+            source = Path(name).resolve()
+            target = unused(source.parent, source.stem + ".png")
+            subprocess.run(["magick", str(source) + "[0]", str(target)], check=True)
+        return
+    directory = Path(names[0])
+    if not directory.is_dir():
+        directory = directory.parent
+    if action == "links":
+        for source in local_files():
+            unused(directory, source.name).symlink_to(source)
+    elif action == "image":
+        types = subprocess.check_output(["wl-paste", "-l"], text=True).splitlines()
+        stem = datetime.now().strftime("img_%Y-%m-%d_%H-%M-%S")
+        if "image/png" in types:
+            data = subprocess.check_output(["wl-paste", "-n", "-t", "image/png"])
+            with unused(directory, stem + ".png").open("xb") as file:
+                file.write(data)
+        elif "text/uri-list" in types:
+            source = next((path for path in local_files() if path.is_file()), None)
+            if source:
+                with source.open("rb") as src, unused(directory, stem + source.suffix).open("xb") as dest:
+                    shutil.copyfileobj(src, dest)
+
+
+if __name__ == "__main__":
+    main()
