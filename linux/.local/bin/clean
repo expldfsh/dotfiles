@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Perform routine Arch cache maintenance, including optional Flatpak runtimes."""
+import argparse
+import shutil
+import subprocess
+import sys
+
+
+def run(args):
+    print("+", *args, flush=True)
+    subprocess.run(args, check=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="清理包缓存及未用的 Flatpak 运行时。")
+    parser.add_argument("-n", "--dry-run", "--preview", action="store_true", help="仅查看范围和候选")
+    parser.add_argument("--keep", type=int, default=3, metavar="N", help="每个包保留的缓存版本数（默认 3）")
+    parser.add_argument("--orphans", action="store_true", help="将当前孤包清单交给 pacman 确认删除")
+    parser.add_argument("--journal", action="store_true", help="收缩 14 天以前的归档 systemd 日志")
+    args = parser.parse_args()
+    if args.keep < 1:
+        parser.error("--keep 至少为 1")
+
+    print(f"[pacman 缓存] 每个包保留最近 {args.keep} 个缓存版本。", flush=True)
+    if args.dry_run:
+        run(["paccache", "-dv", "-k", str(args.keep)])
+    else:
+        run(["sudo", "paccache", "-rv", "-k", str(args.keep)])
+
+    print("\n[孤包] 显式安装的软件不在这份候选列表中。", flush=True)
+    found = subprocess.run(["pacman", "-Qdtq"], capture_output=True, text=True)
+    if found.returncode and (found.returncode != 1 or found.stderr.strip() or found.stdout.strip()):
+        sys.exit(found.stderr or f"pacman -Qdtq 失败（{found.returncode}）")
+    orphans = found.stdout.splitlines()
+    if orphans:
+        print("\n".join(orphans), flush=True)
+        if args.orphans and not args.dry_run:
+            run(["sudo", "pacman", "-R", "--", *orphans])
+        else:
+            print("本次只列出孤包；需要移除时使用 clean --orphans。")
+    else:
+        print("没有孤包。")
+
+    if shutil.which("flatpak"):
+        for scope, label in [("--user", "用户"), ("--system", "系统")]:
+            print(f"\n[Flatpak {label}级]", flush=True)
+            if args.dry_run:
+                print("下面是已装运行时；实际清理时由 Flatpak 判断哪些已不再使用。", flush=True)
+                run(["flatpak", "list", scope, "--runtime", "--columns=ref,size"])
+            else:
+                prefix = ["sudo"] if scope == "--system" else []
+                run(prefix + ["flatpak", "uninstall", scope, "--unused"])
+    else:
+        print("\nFlatpak 未安装，跳过。")
+
+    if args.journal:
+        print("\n[归档日志] 保留最近 14 天。", flush=True)
+        run(["journalctl", "--disk-usage"] if args.dry_run else
+            ["sudo", "journalctl", "--vacuum-time=14d"])
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except subprocess.CalledProcessError as error:
+        sys.exit(error.returncode if error.returncode > 0 else 128 - error.returncode)
+    except OSError as error:
+        sys.exit(str(error))
