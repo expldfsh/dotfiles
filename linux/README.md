@@ -12,9 +12,11 @@ bash linux/install.sh --check --dev
 
 `--dev` 增加编译和调试工具。VMware 自动选择 `profiles/vmware/output.kdl`，为 Virtual-1 指定 1080p。其他机器使用 Niri 的输出自动探测，也可显式选择 `--generic` 或 `--vmware`。开机进入 tty1 的 Ly，选 Niri 并输入普通用户密码。安装器会关闭已有的 Ly 自动登录设置，并保留修改前的 config.ini。安装脚本需要交互式 sudo；AUR 软件按 paru 的正常流程审阅、构建。脚本不自动重启。
 
+安装时默认按公网出口 IP 向 KDE GeoIP 查询一次时区，并用系统的时区列表核对结果。查询失败时保留原来的时区。VPN 或代理可能影响判断。使用 `--timezone=keep` 可沿用 Arch Base 的设置，使用 `--timezone=Asia/Shanghai` 等参数可指定时区。这两种方式都跳过联网查询。`--plan` 和 `--check` 也不会查询位置。日后只想重新检测时，在仓库根目录运行 `bash linux/set-timezone.sh`。
+
 ## 文件与重跑行为
 
-`.config/`、`.local/`、`.vim/` 及 `.bashrc`、`.vimrc`、`.gtkrc-2.0`按用户家目录结构存放。`deploy.py` 复制文件，让 Matugen 能在家目录生成配色，仓库工作树不会因此变脏。默认部署缺失文件，列出并保留已存在且内容不同的文件。`--replace-config` 会先把冲突的普通文件备份到 `~/.local/state/dotfiles-backups/` 再覆盖；自定义软链接会保留并报告。安装器还会设置多伦多时区、系统英文和桌面中文 UTF-8 locale、GTK 字体和主题、Fish 登录 shell，以及下次启动的 NetworkManager、sshd 和 Ly。已有系统请先用 `--plan` 阅读范围。
+`.config/`、`.local/`、`.vim/` 及 `.bashrc`、`.vimrc`、`.gtkrc-2.0`按用户家目录结构存放。`deploy.py` 复制文件，让 Matugen 能在家目录生成配色，仓库工作树不会因此变脏。默认部署缺失文件，列出并保留已存在且内容不同的文件。`--replace-config` 会先把冲突的普通文件备份到 `~/.local/state/dotfiles-backups/` 再覆盖；自定义软链接会保留并报告。安装器还会设置系统英文和桌面中文 UTF-8 locale、GTK 字体和主题、Fish 登录 shell，以及下次启动的 NetworkManager、sshd 和 Ly。已有系统请先用 `--plan` 阅读范围。
 
 17 张轮换壁纸按 `seeds/wallpapers.txt` 从仓库根目录 `wallpaper/` 部署。初次登录后 Waypaper 按现有桌面的规则随机选图。Waypaper 调用 awww 设置桌面和总览背景，随后通过 `.config/scripts/` 和 Matugen 为 Waybar、Niri、GTK、Fcitx5、Fuzzel、Mako、Cava、Yazi 等着色。`seeds/` 包含初始锁屏色和图标重绘脚本。Niri 使用 Breeze 光标。GTK 应用沿用 Adwaita 光标；深浅色主题、文件图标、Thunar 的图标视图和缩略图均随桌面部署。Fuzzel 的隐藏清单只应用于已安装的桌面入口，保留对应版本的启动命令和 MIME 信息。Kitty 保留独立主题。本地 Kitty 显示 `f`，SSH 登录显示 `ff`。剪贴板使用 Fuzzel、cliphist 和 wl-clipboard。
 

@@ -6,6 +6,7 @@ root=$PWD
 mode=install
 dev=0
 profile=auto
+timezone=auto
 deploy_flags=()
 for arg in "$@"; do
     case "$arg" in
@@ -15,9 +16,11 @@ for arg in "$@"; do
         --replace-config) deploy_flags+=(--replace) ;;
         --vmware) profile=vmware ;;
         --generic) profile=generic ;;
+        --timezone=*) timezone=${arg#--timezone=} ;;
         *) echo "Unknown option: $arg" >&2; exit 2 ;;
     esac
 done
+bash "$root/set-timezone.sh" --validate "$timezone"
 if [[ $profile == auto ]]; then
     if [[ $(systemd-detect-virt --vm 2>/dev/null || true) == vmware ]]; then profile=vmware; else profile=generic; fi
 fi
@@ -38,7 +41,8 @@ if [[ $mode == plan ]]; then
         printf '%s\n' .bashrc .vimrc .gtkrc-2.0 'Pictures/Wallpapers (rotation from seeds/wallpapers.txt)' 'installed launchers listed in seeds/hidden-launchers.txt (NoDisplay)' '.cache/.current_wallpaper' '.cache/matugen/hypr/colors.conf'
         if [[ $profile == vmware ]]; then echo '.config/niri/output.kdl (VMware)'; fi
     fi
-    echo 'Set Toronto timezone, generate en_US.UTF-8 and zh_CN.UTF-8, set GTK theme/fonts and Fish as login shell; no automatic reboot.'
+    printf 'Timezone: %s (auto detects the public IP timezone during installation; keep preserves the system setting).\n' "$timezone"
+    echo 'Generate en_US.UTF-8 and zh_CN.UTF-8, set GTK theme/fonts and Fish as login shell; no automatic reboot.'
     exit 0
 fi
 ly_is_manual() {
@@ -98,7 +102,7 @@ paru -S --needed -- "${extra[@]:1}"
 niri validate --config "$root/.config/niri/config.kdl"
 python3 "$root/deploy.py" "${deploy_flags[@]}"
 check "$HOME/.config"
-sudo timedatectl set-timezone America/Toronto
+bash "$root/set-timezone.sh" "$timezone"
 if ! locale -a | grep -Fxi 'en_US.utf8' >/dev/null || ! locale -a | grep -Fxi 'zh_CN.utf8' >/dev/null; then
     sudo sed -i -E 's/^#[[:space:]]*((en_US|zh_CN)\.UTF-8 UTF-8)[[:space:]]*$/\1/' /etc/locale.gen
     sudo locale-gen
