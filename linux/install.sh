@@ -34,10 +34,10 @@ if [[ $mode == plan ]]; then
         # A fresh Arch Base clone may not have Python until the package step.
         echo 'Files relative to the home directory:'
         find .config .local .vim -type f | LC_ALL=C sort
-        printf '%s\n' .bashrc .vimrc 'Pictures/Wallpapers (initial wallpaper)' '.cache/.current_wallpaper' '.cache/matugen/hypr/colors.conf'
+        printf '%s\n' .bashrc .vimrc .gtkrc-2.0 'Pictures/Wallpapers (rotation from seeds/wallpapers.txt)' 'installed launchers listed in seeds/hidden-launchers.txt (NoDisplay)' '.cache/.current_wallpaper' '.cache/matugen/hypr/colors.conf'
         if [[ $profile == vmware ]]; then echo '.config/niri/output.kdl (VMware)'; fi
     fi
-    echo 'Set Toronto timezone, en_US.UTF-8, GTK theme/fonts and Fish as login shell; no automatic reboot.'
+    echo 'Set Toronto timezone, generate en_US.UTF-8 and zh_CN.UTF-8, set GTK theme/fonts and Fish as login shell; no automatic reboot.'
     exit 0
 fi
 ly_is_manual() {
@@ -58,7 +58,11 @@ check() {
     for f in "$cfg"/fish/{functions,conf.d}/*.fish; do fish -n "$f"; done
     [[ -r /usr/share/wayland-sessions/niri.desktop && -s /usr/share/rime-data/rime_ice.schema.yaml && -s /usr/share/rime-data/double_pinyin_flypy.schema.yaml ]]
     fish -c 'functions -q f; and functions -q ff; and functions -q fwatch' || return 1
-    [[ -x $HOME/.local/bin/clipboard-menu && -x $HOME/.local/bin/sysup ]]
+    local tool
+    for tool in "$root"/.local/bin/*; do
+        [[ -x $HOME/.local/bin/${tool##*/} ]] || { echo "Missing ${tool##*/}" >&2; return 1; }
+    done
+    [[ -r /usr/share/icons/breeze_cursors/cursors/left_ptr ]]
     [[ $(fc-match -f '%{family[0]}' 'monospace:lang=en:charset=0041') == FiraCode* ]]
     [[ $(fc-match -f '%{family[0]}' 'sans-serif:lang=zh-cn:charset=4e2d') == *CJK* ]]
 }
@@ -88,13 +92,13 @@ niri validate --config "$root/.config/niri/config.kdl"
 python3 "$root/deploy.py" "${deploy_flags[@]}"
 check "$HOME/.config"
 sudo timedatectl set-timezone America/Toronto
-if ! locale -a | grep -Fxi 'en_US.utf8' >/dev/null; then
-    sudo sed -i -E 's/^#[[:space:]]*(en_US\.UTF-8 UTF-8)[[:space:]]*$/\1/' /etc/locale.gen
+if ! locale -a | grep -Fxi 'en_US.utf8' >/dev/null || ! locale -a | grep -Fxi 'zh_CN.utf8' >/dev/null; then
+    sudo sed -i -E 's/^#[[:space:]]*((en_US|zh_CN)\.UTF-8 UTF-8)[[:space:]]*$/\1/' /etc/locale.gen
     sudo locale-gen
 fi
 sudo localectl set-locale LANG=en_US.UTF-8
 if [[ $(getent passwd "$(id -un)" | cut -d: -f7) != /usr/bin/fish ]]; then sudo usermod -s /usr/bin/fish "$(id -un)"; fi
-for setting in 'gtk-theme:adw-gtk3-dark' 'cursor-theme:Adwaita' 'font-name:FiraCode Nerd Font 11' 'document-font-name:FiraCode Nerd Font 11' 'monospace-font-name:FiraCode Nerd Font Mono 11'; do
+for setting in 'gtk-theme:adw-gtk3-dark' 'color-scheme:prefer-dark' 'cursor-theme:Adwaita' 'font-name:FiraCode Nerd Font 11' 'document-font-name:FiraCode Nerd Font 11' 'monospace-font-name:FiraCode Nerd Font Mono 11'; do
     dbus-run-session -- gsettings set org.gnome.desktop.interface "${setting%%:*}" "${setting#*:}"
 done
 # Materialize first-login icon colors from the bundled seed; subsequent wallpapers use Matugen.
