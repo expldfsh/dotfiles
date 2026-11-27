@@ -21,7 +21,7 @@ bash linux/install.sh --check --dev
 ## 软件来源
 
 - `packages/arch.txt`：基础桌面、字体、输入法、终端和编辑器。直接依赖显式列出，库由 pacman 解析。
-- `packages/extra-sources.txt`：首先安装 Shorin 的 Niri 分支，再安装 nirius、Waypaper 和两项 Rime 数据。已配置的软件源优先，其他包由 AUR 提供。没有可用的 paru 时，从已配仓库或官方 AUR 的 paru 仓库引导安装。无需添加 Shorin 软件源。
+- `packages/extra-sources.txt`：首先安装 Shorin 的 Niri 分支，再安装 nirius 和 Waypaper。已配置的软件源优先，其他包由 AUR 提供。没有可用的 paru 时，从已配仓库或官方 AUR 的 paru 仓库引导安装。无需添加 Shorin 软件源。
 - `packages/expldfsh-lolcat/PKGBUILD` 固定 [expldfsh/lolcat 的源码提交](https://github.com/expldfsh/lolcat/tree/f32fcbb0b0361a88fe350bfd0939871b6c8ae71e)，校验 SHA-256 后只编译 `lolcat`。安装到 `/usr/bin/lolcat`，归本地包 `expldfsh-lolcat` 管理。构建使用临时目录，退出时清理。更新此固定版本后可单独运行 `bash linux/install-lolcat.sh`；在已有机器上，pacman 会提示处理与官方 Ruby 版的冲突。验证用 `lolcat --version`，末尾应显示 `patched by expldfsh`。若系统已有同名手动安装，使用 `type -a lolcat` 查看命令优先级。
 - `packages/dev.txt`：Clang、CMake、Ninja、Rust、GDB、Node.js、Tree-sitter 等开发工具。Neovim 首次使用时由 lazy.nvim 下载插件；经典 Vim 带有 vim-plug，使用 `:PlugInstall` 安装 .vimrc 中选择的插件。VimTeX 的 Sioyek 和 TeX 工具链按使用需要另装。
 - 配置和包清单不含 SSH 身份、令牌、Rime 词频、浏览器用户资料、历史记录或图片缓存。
@@ -68,6 +68,6 @@ python3 linux/tools.py pacd media-info
 
 在 Shorin 项目中，只有 `niri-shorin-fork-git` 被安装为软件包并由包管理器更新。桌面配置和本地工具由本仓库维护。通用工具来自 [shorin-contrib 的固定版本](https://github.com/SHORiN-KiWATA/shorin-contrib/tree/bae65b88dc9e7d36a5eefce422a33fa877bf997f)，软件包元数据标为 GPL3，随附文本见 `licenses/shorin-contrib-GPL-3.0.txt`。`checkallupdates` 接入本地 sysup；sysup、clean 和 mirror-update 为本仓库实现。显示设置界面来自 [niri-display-settings](https://github.com/SHORiN-KiWATA/niri-display-settings/tree/5f76b3f)，只部署 Python 源码、桌面入口和图标，MIT 许可见 `licenses/niri-display-settings-MIT`。独立复制的工具随 dotfiles 提交更新。
 
-这里复现当前正在使用的 Niri 桌面。备用 Win11 顶栏、截录屏、AI、护眼和 Btrfs 项目按已选范围排除。输入法使用 Arch 官方 Fcitx5 搭配迁移的 Rime 方案和主题。GPU 渲染器由 mpv 自动选择。
+这里复现当前正在使用的 Niri 桌面。备用 Win11 顶栏、截录屏、AI、护眼和 Btrfs 项目按已选范围排除。中文输入使用 Arch 官方 Fcitx5、Rime 和 rime-luna-pinyin，方案列表只启用「朙月拼音·简化字」（luna_pinyin_simp）。按 Shift 在英文键盘与中文全拼之间切换。候选窗沿用 Matugen 配色，每页六项。已有个人输入法配置的机器可对照 `.local/share/fcitx5/rime/default.custom.yaml` 检查方案列表。GPU 渲染器由 mpv 自动选择。
 
-在新的克隆首次登录后，检查网格总览、Super+T、SSH 登录、换壁纸后顶栏与图标变色、剪贴板、两个 Rime 拼音方案、音量和锁屏。静态校验无法替代这次图形会话测试。
+在新的克隆首次登录后，检查网格总览、Super+T、SSH 登录、换壁纸后顶栏与图标变色、剪贴板、中文全拼（输入 `nihao` 并选择「你好」）、音量和锁屏。静态校验无法替代这次图形会话测试。

@@ -1,5 +1,3 @@
 niri-shorin-fork-git
 nirius
 waypaper
-rime-ice-git
-rime-wanxiang-gram-zh-hans

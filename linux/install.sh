@@ -58,7 +58,11 @@ check() {
     [[ $(lolcat --version) == *'patched by expldfsh'* ]] || { echo "The active lolcat is not the expldfsh build. Check: type -a lolcat" >&2; return 1; }
     fish -n "$cfg/fish/config.fish"
     for f in "$cfg"/fish/{functions,conf.d}/*.fish; do fish -n "$f"; done
-    [[ -r /usr/share/wayland-sessions/niri.desktop && -s /usr/share/rime-data/rime_ice.schema.yaml && -s /usr/share/rime-data/double_pinyin_flypy.schema.yaml ]]
+    [[ -r /usr/share/wayland-sessions/niri.desktop ]]
+    [[ -s /usr/share/rime-data/luna_pinyin_simp.schema.yaml && -s $HOME/.local/share/fcitx5/rime/default.custom.yaml ]] || {
+        echo 'Missing the Rime simplified Pinyin schema or its user configuration.' >&2
+        return 1
+    }
     fish -c 'functions -q f; and functions -q ff; and functions -q fwatch' || return 1
     local tool
     for tool in "$root"/.local/bin/*; do
