@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+country='CA,US'
+preview=false
+help() {
+    echo 'mirror-update [--dry-run] [--country CA,US | --worldwide]'
+    echo '为 Arch 官方仓库选择最近同步的 HTTPS 镜像，默认测速加拿大和美国的镜像。'
+    echo '预览只打印候选。写入前备份旧清单，可从输出的路径恢复。'
+}
+while (($#)); do
+    case $1 in
+        -n|--dry-run|--preview) preview=true ;;
+        --country)
+            [[ $# -ge 2 && -n $2 && $2 != -* ]] || { help >&2; exit 2; }
+            country=$2
+            shift ;;
+        --worldwide) country='' ;;
+        -h|--help) help; exit 0 ;;
+        *) help >&2; exit 2 ;;
+    esac
+    shift
+done
+
+args=(--protocol https --age 24 --latest 12 --sort rate --number 8 --connection-timeout 4 --download-timeout 4)
+if [[ -n $country ]]; then args+=(--country "$country"); fi
+echo "正在测速，范围为 ${country:-全球}。" >&2
+candidate=$(mktemp)
+trap 'rm -f -- "$candidate"' EXIT
+reflector "${args[@]}" > "$candidate"
+# Accept only comments, blank lines and HTTPS Server entries with both pacman variables.
+if ! awk '
+    /^[[:space:]]*(#|$)/ { next }
+    /^Server[[:space:]]*=[[:space:]]*https:\/\/[^[:space:]]+$/ && index($0,"$repo") && index($0,"$arch") { servers++; next }
+    { invalid=1 }
+    END { exit (invalid || !servers) }
+' "$candidate"; then
+    echo 'Reflector 未返回有效清单，原镜像列表已保留。可改用 --worldwide。' >&2
+    exit 1
+fi
+if $preview; then cat -- "$candidate"; exit 0; fi
+
+# The root-owned temporary and final files share a filesystem, so replacement is atomic.
+sudo bash -s -- /etc/pacman.d "$candidate" <<'ROOT'
+set -euo pipefail
+dir=$1
+target=$dir/mirrorlist
+exec 9>"$dir/.dotfiles-mirror.lock"
+flock -x 9
+[[ -f $target && ! -L $target ]] || { echo "请核对镜像列表路径：$target" >&2; exit 1; }
+new=$(mktemp "$dir/.mirrorlist.XXXXXXXX")
+trap 'rm -f -- "$new"' EXIT
+install -m 0644 -- "$2" "$new"
+if cmp -s -- "$new" "$target"; then echo '已在使用相同的镜像列表。'; exit 0; fi
+backup=$(mktemp "$dir/mirrorlist.before-dotfiles.XXXXXXXX")
+cp --preserve=mode,ownership,timestamps -- "$target" "$backup"
+mv -fT -- "$new" "$target"
+printf '已更新 %s\n旧清单保存在 %s\n' "$target" "$backup"
+ROOT
