@@ -1,2 +1,96 @@
-#!/bin/sh
-exec paru -Syu "$@"
+#!/usr/bin/env python3
+"""Update Arch, AUR development packages and optional Flatpak installations."""
+import argparse
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+
+
+def command(args, *, query=False, empty_status=None):
+    print("+", shlex.join(args), flush=True)
+    if not query:
+        return subprocess.run(args).returncode
+    result = subprocess.run(args, capture_output=True, text=True, errors="replace")
+    if result.stdout:
+        print(result.stdout, end="", flush=True)
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr, flush=True)
+    if result.returncode == empty_status and not result.stderr.strip() and not result.stdout.strip():
+        print("已是最新。")
+        return 0
+    if result.returncode == 0 and not result.stdout.strip():
+        print("没有待更新项目。")
+    return result.returncode
+
+
+def main():
+    parser = argparse.ArgumentParser(description="完整更新 Arch 仓库、AUR 软件和已安装的 Flatpak。")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("-l", "--list", "--check", "--dry-run", dest="check", action="store_true",
+                      help="只列出可用版本，包括 AUR Git 更新")
+    mode.add_argument("--news", action="store_true", help="只显示 paru 检测到的 Arch 官方新闻")
+    parser.add_argument("--no-flatpak", action="store_true", help="本次跳过 Flatpak")
+    args = parser.parse_args()
+    if args.news:
+        if not shutil.which("paru"):
+            parser.exit(1, "查看 Arch 新闻 https://archlinux.org/news/\n")
+        return command(["paru", "-Pw"])
+    if not args.check and os.geteuid() == 0:
+        parser.exit(1, "请用普通用户运行 sysup，仓库事务会自行请求 sudo。\n")
+
+    summary = []
+    failures = 0
+
+    def stage(name, argv, *, empty_status=None):
+        nonlocal failures
+        print(f"\n[{name}]", flush=True)
+        start = time.monotonic()
+        code = command(argv, query=args.check, empty_status=empty_status)
+        if code in (130, -2):
+            raise KeyboardInterrupt
+        status = "完成" if code == 0 else f"失败或取消，退出码 {code}"
+        summary.append(f"{name}：{status}（{time.monotonic() - start:.1f} 秒）")
+        failures += code != 0
+        return code == 0
+
+    print(f"{'检查更新' if args.check else '系统更新'}  {time.strftime('%F %T %Z')}")
+    print("Arch 公告 https://archlinux.org/news/  ·  sysup --news")
+    native = ["checkupdates", "--nocolor"] if args.check else ["sudo", "pacman", "-Syu"]
+    native_ok = stage("Arch 仓库", native, empty_status=2)
+    if native_ok or args.check:
+        if shutil.which("paru"):
+            aur = ["paru", "-Qua" if args.check else "-Sua", "--devel"]
+            stage("AUR（含已跟踪的 Git 包）", aur, empty_status=1)
+        else:
+            summary.append("AUR：未找到 paru，跳过")
+        if args.no_flatpak or not shutil.which("flatpak"):
+            summary.append("Flatpak：" + ("本次已跳过" if args.no_flatpak else "未安装，跳过"))
+        else:
+            for scope, label in [("--user", "用户"), ("--system", "系统")]:
+                if args.check:
+                    argv = ["flatpak", "remote-ls", scope, "--updates", "--columns=ref,version"]
+                else:
+                    prefix = ["sudo"] if scope == "--system" else []
+                    argv = prefix + ["flatpak", "update", scope]
+                stage(f"Flatpak {label}级", argv)
+    else:
+        summary.append("Arch 仓库事务未完成，本次到此停止。请先处理上方的 pacman 输出。")
+
+    print("\n汇总")
+    for line in summary:
+        print("  " + line)
+    if not args.check:
+        print("pacman 事务日志在 /var/log/pacman.log，可用 pacdiff -o 查看待合并的配置。")
+    return int(bool(failures))
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except OSError as error:
+        sys.exit(str(error))
