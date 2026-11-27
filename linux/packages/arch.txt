@@ -79,3 +79,5 @@ imv
 mpv
 pacman-contrib
 reflector
+breeze-cursors
+adw-gtk-theme
