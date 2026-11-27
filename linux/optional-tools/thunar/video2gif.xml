@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<action>
+	<icon />
+	<name>视频转gif</name>
+	<submenu />
+	<unique-id>1769514623477685-1</unique-id>
+	<command>kitty --class="floating-term" -e video2gif %F</command>
+	<description />
+	<range>*</range>
+	<patterns>*</patterns>
+	<video-files />
+</action>

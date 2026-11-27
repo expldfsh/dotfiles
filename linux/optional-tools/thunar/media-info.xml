@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<action>
+	<icon />
+	<name>多媒体信息</name>
+	<submenu />
+	<unique-id>1769424941490550-1</unique-id>
+	<command>kitty --class "media_info" -e media-info %f </command>
+	<description />
+	<range>*</range>
+	<patterns>*</patterns>
+	<audio-files />
+	<video-files />
+</action>

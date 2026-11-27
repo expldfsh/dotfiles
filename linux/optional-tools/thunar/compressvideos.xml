@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<action>
+	<icon />
+	<name>压缩视频大小</name>
+	<submenu />
+	<unique-id>1770021157399945-1</unique-id>
+	<command>kitty --class floating-term -e compressvideos -q 2 -p %F</command>
+	<description />
+	<range>*</range>
+	<patterns>*</patterns>
+	<video-files />
+</action>
