@@ -14,7 +14,6 @@ zoxide
 eza
 bat
 fastfetch
-sl
 btop
 fzf
 ripgrep
@@ -42,7 +41,6 @@ mako
 fuzzel
 cava
 swayosd
-swayidle
 hyprlock
 awww
 matugen

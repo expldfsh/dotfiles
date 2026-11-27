@@ -18,7 +18,7 @@ bash linux/install.sh --check --dev
 
 `.config/`、`.local/`、`.vim/` 及 `.bashrc`、`.vimrc`、`.gtkrc-2.0`按用户家目录结构存放。`deploy.py` 复制文件，让 Matugen 能在家目录生成配色，仓库工作树不会因此变脏。默认部署缺失文件，列出并保留已存在且内容不同的文件。`--replace-config` 会先把冲突的普通文件备份到 `~/.local/state/dotfiles-backups/` 再覆盖；自定义软链接会保留并报告。安装器还会设置系统英文和桌面中文 UTF-8 locale、GTK 字体和主题、Fish 登录 shell，以及下次启动的 NetworkManager、sshd 和 Ly。已有系统请先用 `--plan` 阅读范围。
 
-17 张轮换壁纸按 `seeds/wallpapers.txt` 从仓库根目录 `wallpaper/` 部署。初次登录后 Waypaper 按现有桌面的规则随机选图。Waypaper 调用 awww 设置桌面和总览背景，随后通过 `.config/scripts/` 和 Matugen 为 Waybar、Niri、GTK、Fcitx5、Fuzzel、Mako、Cava、Yazi 等着色。`seeds/` 包含初始锁屏色和图标重绘脚本。Niri 使用 Breeze 光标。GTK 应用沿用 Adwaita 光标；深浅色主题、文件图标、Thunar 的图标视图和缩略图均随桌面部署。Fuzzel 的隐藏清单只应用于已安装的桌面入口，保留对应版本的启动命令和 MIME 信息。Kitty 保留独立主题。本地 Kitty 显示 `f`，SSH 登录显示 `ff`。剪贴板使用 Fuzzel、cliphist 和 wl-clipboard。
+17 张轮换壁纸按 `seeds/wallpapers.txt` 从仓库根目录 `wallpaper/` 部署。初次登录后 Waypaper 按现有桌面的规则随机选图。Waypaper 调用 awww 设置桌面和总览背景，随后通过 `.config/scripts/` 和 Matugen 为 Waybar、Niri、GTK、Fcitx5、Fuzzel、Mako、Cava、Yazi 等着色。`seeds/` 包含初始锁屏色和图标重绘脚本。Niri 使用 Breeze 光标。GTK 应用沿用 Adwaita 光标；深浅色主题、文件图标、Thunar 的图标视图和缩略图均随桌面部署。Fuzzel 的隐藏清单只应用于已安装的桌面入口，保留对应版本的启动命令和 MIME 信息。Kitty 保留独立主题。本地 Kitty 显示 `f`，SSH 登录显示 `ff`。用 Super+Alt+L 可随时手动锁屏。剪贴板使用 Fuzzel、cliphist 和 wl-clipboard。
 
 ## 软件来源
 
