@@ -80,4 +80,8 @@ mpv
 pacman-contrib
 reflector
 breeze-cursors
+gvfs
+tumbler
+ffmpegthumbnailer
+thunar-volman
 adw-gtk-theme
