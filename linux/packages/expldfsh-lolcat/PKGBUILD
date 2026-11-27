@@ -1,0 +1,34 @@
+pkgname=expldfsh-lolcat
+pkgver=1.5.r100.gf32fcbb
+pkgrel=1
+pkgdesc="C implementation of lolcat with expldfsh's randomized color phase"
+arch=('x86_64')
+url='https://github.com/expldfsh/lolcat'
+license=('WTFPL')
+depends=('glibc')
+makedepends=('python')
+provides=('lolcat')
+conflicts=('lolcat' 'c-lolcat' 'python-lolcat')
+options=('!debug')
+_commit=f32fcbb0b0361a88fe350bfd0939871b6c8ae71e
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/expldfsh/lolcat/tar.gz/$_commit")
+sha256sums=('26d9af19bea3864e589678d889c6b00533306db9be8b7bd2c9969dc4c79b5767')
+
+build() {
+    cd "lolcat-$_commit"
+    make lolcat
+}
+
+check() {
+    cd "lolcat-$_commit"
+    ./lolcat --version | grep -F 'patched by expldfsh'
+    local sample
+    sample=$(printf 'rainbow\n' | ./lolcat --force-color)
+    [[ $sample == *$'\033['* ]]
+}
+
+package() {
+    cd "lolcat-$_commit"
+    install -Dm755 lolcat "$pkgdir/usr/bin/lolcat"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

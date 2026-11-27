@@ -22,6 +22,7 @@ bash linux/install.sh --check --dev
 
 - `packages/arch.txt`：基础桌面、字体、输入法、终端和编辑器。直接依赖显式列出，库由 pacman 解析。
 - `packages/extra-sources.txt`：首先安装 Shorin 的 Niri 分支，再安装 nirius、Waypaper 和两项 Rime 数据。已配置的软件源优先，其他包由 AUR 提供。没有可用的 paru 时，从已配仓库或官方 AUR 的 paru 仓库引导安装。无需添加 Shorin 软件源。
+- `packages/expldfsh-lolcat/PKGBUILD` 固定 [expldfsh/lolcat 的源码提交](https://github.com/expldfsh/lolcat/tree/f32fcbb0b0361a88fe350bfd0939871b6c8ae71e)，校验 SHA-256 后只编译 `lolcat`。安装到 `/usr/bin/lolcat`，归本地包 `expldfsh-lolcat` 管理。构建使用临时目录，退出时清理。更新此固定版本后可单独运行 `bash linux/install-lolcat.sh`；在已有机器上，pacman 会提示处理与官方 Ruby 版的冲突。验证用 `lolcat --version`，末尾应显示 `patched by expldfsh`。若系统已有同名手动安装，使用 `type -a lolcat` 查看命令优先级。
 - `packages/dev.txt`：Clang、CMake、Ninja、Rust、GDB、Node.js、Tree-sitter 等开发工具。Neovim 首次使用时由 lazy.nvim 下载插件；经典 Vim 带有 vim-plug，使用 `:PlugInstall` 安装 .vimrc 中选择的插件。VimTeX 的 Sioyek 和 TeX 工具链按使用需要另装。
 - 配置和包清单不含 SSH 身份、令牌、Rime 词频、浏览器用户资料、历史记录或图片缓存。
 

@@ -27,6 +27,7 @@ mapfile -t extra < packages/extra-sources.txt
 if (( dev )); then mapfile -t more < packages/dev.txt; official+=("${more[@]}"); fi
 if [[ $mode == plan ]]; then
     printf 'Profile: %s; dev: %s; Ly: manual password login\nOfficial: %s\nRepository or AUR: paru %s\n' "$profile" "$dev" "${official[*]}" "${extra[*]}"
+    echo 'Local package: expldfsh-lolcat (verified source from github.com/expldfsh/lolcat, compiled in a temporary directory)'
     echo 'Deploy .config, .local, .vim, shell dotfiles, wallpaper and lockscreen colors; enable NetworkManager, sshd and Ly for next boot; reserve tty1 for Ly.'
     if command -v python3 >/dev/null; then
         python3 "$root/deploy.py" --plan "${deploy_flags[@]}"
@@ -54,6 +55,7 @@ ly_is_manual() {
 check() {
     local cfg=$1
     niri validate --config "$cfg/niri/config.kdl"
+    [[ $(lolcat --version) == *'patched by expldfsh'* ]] || { echo "The active lolcat is not the expldfsh build. Check: type -a lolcat" >&2; return 1; }
     fish -n "$cfg/fish/config.fish"
     for f in "$cfg"/fish/{functions,conf.d}/*.fish; do fish -n "$f"; done
     [[ -r /usr/share/wayland-sessions/niri.desktop && -s /usr/share/rime-data/rime_ice.schema.yaml && -s /usr/share/rime-data/double_pinyin_flypy.schema.yaml ]]
@@ -67,7 +69,7 @@ check() {
     [[ $(fc-match -f '%{family[0]}' 'sans-serif:lang=zh-cn:charset=4e2d') == *CJK* ]]
 }
 if [[ $mode == check ]]; then
-    pacman -Q -- "${official[@]}" "${extra[@]}" paru >/dev/null
+    pacman -Q -- "${official[@]}" "${extra[@]}" paru expldfsh-lolcat >/dev/null
     check "$HOME/.config"
     ly_is_manual /etc/ly/config.ini || { echo 'Ly still has an automatic login configured.' >&2; exit 1; }
     echo 'Installed configuration OK; Ly uses manual login.'
@@ -76,6 +78,7 @@ fi
 [[ $EUID != 0 && -f /etc/arch-release && $(uname -m) == x86_64 ]] || { echo 'Use a normal user on Arch x86_64.' >&2; exit 1; }
 sudo -v
 sudo pacman -Syu --needed -- "${official[@]}"
+bash "$root/install-lolcat.sh"
 if ! command -v paru >/dev/null; then
     if pacman -Si paru >/dev/null 2>&1; then sudo pacman -S --needed paru
     else
