@@ -5,7 +5,6 @@ cd -- "$(dirname -- "$0")"
 root=$PWD
 mode=install
 dev=0
-autologin=0
 profile=auto
 deploy_flags=()
 for arg in "$@"; do
@@ -13,7 +12,6 @@ for arg in "$@"; do
         --plan) mode=plan ;;
         --check) mode=check ;;
         --dev) dev=1 ;;
-        --autologin) autologin=1 ;;
         --replace-config) deploy_flags+=(--replace) ;;
         --vmware) profile=vmware ;;
         --generic) profile=generic ;;
@@ -28,8 +26,8 @@ mapfile -t official < packages/arch.txt
 mapfile -t extra < packages/extra-sources.txt
 if (( dev )); then mapfile -t more < packages/dev.txt; official+=("${more[@]}"); fi
 if [[ $mode == plan ]]; then
-    printf 'Profile: %s; dev: %s; Ly autologin: %s\nOfficial: %s\nRepository or AUR: paru %s\n' "$profile" "$dev" "$autologin" "${official[*]}" "${extra[*]}"
-    echo 'Deploy .config, .local, .vim, shell dotfiles, wallpaper and lockscreen colors; enable NetworkManager, sshd and Ly for next boot.'
+    printf 'Profile: %s; dev: %s; Ly: manual password login\nOfficial: %s\nRepository or AUR: paru %s\n' "$profile" "$dev" "${official[*]}" "${extra[*]}"
+    echo 'Deploy .config, .local, .vim, shell dotfiles, wallpaper and lockscreen colors; enable NetworkManager, sshd and Ly for next boot; reserve tty1 for Ly.'
     if command -v python3 >/dev/null; then
         python3 "$root/deploy.py" --plan "${deploy_flags[@]}"
     else
@@ -42,6 +40,17 @@ if [[ $mode == plan ]]; then
     echo 'Set Toronto timezone, en_US.UTF-8, GTK theme/fonts and Fish as login shell; no automatic reboot.'
     exit 0
 fi
+ly_is_manual() {
+    awk -F= '
+        $1 ~ /^[[:space:]]*auto_login_(user|session)[[:space:]]*$/ {
+            value=$2
+            sub(/[;#].*$/, "", value)
+            gsub(/[[:space:]]/, "", value)
+            if (value != "" && value != "null") enabled=1
+        }
+        END { exit (enabled ? 1 : 0) }
+    ' "$1"
+}
 check() {
     local cfg=$1
     niri validate --config "$cfg/niri/config.kdl"
@@ -56,7 +65,8 @@ check() {
 if [[ $mode == check ]]; then
     pacman -Q -- "${official[@]}" "${extra[@]}" paru >/dev/null
     check "$HOME/.config"
-    echo 'Installed configuration OK.'
+    ly_is_manual /etc/ly/config.ini || { echo 'Ly still has an automatic login configured.' >&2; exit 1; }
+    echo 'Installed configuration OK; Ly uses manual login.'
     exit 0
 fi
 [[ $EUID != 0 && -f /etc/arch-release && $(uname -m) == x86_64 ]] || { echo 'Use a normal user on Arch x86_64.' >&2; exit 1; }
@@ -89,10 +99,13 @@ for setting in 'gtk-theme:adw-gtk3-dark' 'cursor-theme:Adwaita' 'font-name:FiraC
 done
 # Materialize first-login icon colors from the bundled seed; subsequent wallpapers use Matugen.
 dbus-run-session -- bash "$root/seeds/recoloricons.sh"
-sudo systemctl enable NetworkManager.service sshd.service ly@tty1.service
-if (( autologin )); then
-    for key in auto_login_user auto_login_session; do grep -Eq "^$key[[:space:]]*=" /etc/ly/config.ini || { echo "Unsupported Ly config: $key"; exit 1; }; done
-    sudo cp --no-clobber /etc/ly/config.ini /etc/ly/config.ini.before-dotfiles
-    sudo sed -i -E -e "s/^auto_login_user[[:space:]]*=.*/auto_login_user = $(id -un)/" -e 's/^auto_login_session[[:space:]]*=.*/auto_login_session = niri/' /etc/ly/config.ini
+ly_config=/etc/ly/config.ini
+[[ -r $ly_config ]] || { echo "Cannot check $ly_config" >&2; exit 1; }
+if ! ly_is_manual "$ly_config"; then
+    if [[ ! -e $ly_config.before-dotfiles ]]; then sudo cp -p -- "$ly_config" "$ly_config.before-dotfiles"; fi
+    sudo sed -i -E 's/^([[:space:]]*auto_login_(user|session)[[:space:]]*=[[:space:]]*).*/\1null/' "$ly_config"
+    ly_is_manual "$ly_config"
 fi
-echo 'Ready for the next boot. In Ly select Niri.'
+sudo systemctl enable NetworkManager.service sshd.service ly@tty1.service
+sudo systemctl disable getty@tty1.service
+echo 'Ready for the next boot. Select Niri in Ly and enter your password.'
