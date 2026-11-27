@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 root = Path(__file__).resolve().parent
@@ -44,11 +45,43 @@ def hide_from_launcher(source, workdir):
     return generated
 
 
-def install(vmware, replace, workdir):
+def thunar_menu(source, names, workdir):
+    original = source.read_bytes()
+    tree = ET.fromstring(original)
+    if tree.tag != "actions":
+        raise ValueError(f"Unexpected Thunar menu: {source}")
+    known = {action.findtext("unique-id") for action in tree.findall("action")}
+    additions = []
+    for name in sorted(set(names)):
+        fragment = root / "optional-tools/thunar" / (name + ".xml")
+        if fragment.is_file():
+            action = ET.parse(fragment).getroot()
+            if action.findtext("unique-id") not in known:
+                additions.append(ET.tostring(action, encoding="utf-8").strip())
+    if not additions:
+        return source
+    # Append to the existing XML so the user's actions, comments and order survive.
+    head, close, tail = original.rpartition(b"</actions>")
+    if not close:
+        if not list(tree) and tree.tag == "actions":
+            head, close, tail = b"<actions>", b"</actions>", b"\\n"
+        else:
+            raise ValueError(f"Cannot append to Thunar menu: {source}")
+    path = workdir / "thunar-with-tools.xml"
+    path.write_bytes(head.rstrip() + b"\\n" + b"\\n".join(additions) + b"\\n" + close + tail)
+    shutil.copymode(source, path)
+    return path
+
+
+def install_files(pairs, replace, workdir):
     backup = None
     copied = same = 0
     skipped = []
-    for src, dst in mapping(vmware):
+    for src, dst in pairs:
+        if src == root / ".config/Thunar/uca.xml":
+            names = [f.stem for f in (root / "optional-tools/thunar").glob("*.xml")
+                     if os.access(home / ".local/bin" / f.stem, os.X_OK)]
+            src = thunar_menu(src, names, workdir)
         if src.parent == system_apps:
             src = hide_from_launcher(src, workdir)
         if not src.is_file() or src.is_symlink():
@@ -83,6 +116,10 @@ def install(vmware, replace, workdir):
     print(f"Installed {copied}, identical {same}, kept {len(skipped)} existing paths")
     for dst in skipped:
         print("Kept:", dst)
+    
+
+def install(vmware, replace, workdir):
+    install_files(mapping(vmware), replace, workdir)
     wallpaper_link = home / ".cache/.current_wallpaper"
     if not os.path.lexists(wallpaper_link):
         wallpaper_link.symlink_to(home / "Pictures/Wallpapers" / wall_name)
