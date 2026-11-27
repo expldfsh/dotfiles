@@ -1,0 +1,9 @@
+clang
+cmake
+ninja
+rust
+gdb
+strace
+nodejs
+npm
+tree-sitter-cli
