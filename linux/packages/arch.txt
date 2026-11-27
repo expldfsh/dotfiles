@@ -85,3 +85,5 @@ tumbler
 ffmpegthumbnailer
 thunar-volman
 adw-gtk-theme
+gtk4
+libadwaita
