@@ -499,3 +499,8 @@ window#waybar.empty #window {
 #idle_inhibitor.activated {
     padding: 0 10px 0 4px;
 }
+
+/* 把 Arch 菱形向屏幕中央移 */
+#custom-left_div.3 {
+    padding-left: 75px;
+}
