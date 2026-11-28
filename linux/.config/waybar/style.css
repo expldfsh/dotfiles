@@ -187,7 +187,7 @@ window#waybar.empty #window {
 }
 #custom-applauncher {
     font-size: 1.39em; /* 25px */
-    padding: 0px 0.39em; /* 7px */
+    padding: 0px 0.52em 0 0.26em; /* 7px */
     margin: 0px;
     background-color: @primary;
     color: @on_primary;
@@ -487,4 +487,15 @@ window#waybar.empty #window {
     color: @surface_container_high;
     padding: 0px;
     font-size: 1.39em; /* 25px */
+}
+
+/* 绿色块里的眼睛和取色器各向左移约 3px */
+#idle_inhibitor,
+#custom-colorpicker {
+    padding: 0 9px 0 3px;
+}
+
+/* 眼睛处于激活状态时，原主题有单独的间距 */
+#idle_inhibitor.activated {
+    padding: 0 10px 0 4px;
 }
